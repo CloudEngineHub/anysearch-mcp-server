@@ -1,5 +1,7 @@
 # AnySearch MCP Server
 
+> English | [简体中文](./README_zh.md)
+
 Unified real-time search MCP server supporting general web search, vertical domain search, parallel batch search, and full-page URL content extraction.
 
 ## Features
