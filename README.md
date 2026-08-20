@@ -1,5 +1,7 @@
 # AnySearch MCP Server
 
+> English | [简体中文](./README_zh.md)
+
 Unified real-time search MCP server supporting general web search, vertical domain search, parallel batch search, and full-page URL content extraction.
 
 ## Features
@@ -16,7 +18,7 @@ An API key is **optional but recommended**. Without a key, all features still wo
 
 ### Register for an API Key (Recommended)
 
-The agent can register the user and obtain an API key in a **single call** — no verification code, no manual signup. Ask the user for a **real email address**: it becomes the account username, and a randomly generated password is emailed to it.
+The agent can register the user and obtain an API key in a **single call** — no verification code, no manual signup. Ask the user for a **real email address**: it becomes the account username.
 
 ```bash
 curl -s -X POST "https://api.anysearch.com/v1/auth/email/register" \
@@ -51,8 +53,7 @@ Success response (`code: 0`) returns the account info and a one-time plaintext A
 On success the agent MUST:
 
 1. Put `data.api_key.key` into the MCP server config as the `Authorization: Bearer <key>` value (and/or set `ANYSEARCH_API_KEY`) — it is shown only once (it can also be retrieved later from the dashboard).
-2. Tell the user their username (= email), the `login_url`, and that a **random password has been emailed to that address**.
-3. Relay this note to the user: *A verification email has been sent to your inbox. If you don't see it within a few minutes, please check your spam or junk folder. You may need to mark it as "Not Spam" to ensure future emails arrive correctly.*
+2. Tell the user their username (= email) and the `login_url`.
 
 Error handling (always `code: -1` on error; branch on the `message` string):
 
@@ -64,7 +65,7 @@ Error handling (always `code: -1` on error; branch on the `message` string):
 | starts with `Key creation failed.` | account created but key failed — extract the email and URL from the message (`"Key creation failed. Your account <email> was created; sign in at <url>."`) and tell the user to sign in there to create a key manually |
 | `Internal server error.`          | retry later or fall back to anonymous                                                               |
 
-> The email **must be real and reachable** — the password is delivered there. There is **no verification code** in this flow; the agent only ever asks for an email.
+> The email **must be real and reachable**.
 
 ### Get an API Key
 
