@@ -91,33 +91,23 @@ curl -s -X POST "https://api.anysearch.com/v1/auth/email/register" \
 
 ## MCP 传输
 
-AnySearch MCP 服务器**原生支持 Streamable HTTP** 传输（MCP 规范 2025-03-26）。SSE 和 stdio 客户端可通过代理连接。
+线上服务端点为：
 
-| 传输方式 | 原生支持？ | 适用对象 |
-| -------- | -------- | -------- |
-| **Streamable HTTP** | 是 | OpenCode、Claude Desktop (2025.6+)、Web 客户端 |
-| **SSE** | 通过代理 | Cursor、Windsurf |
-| **stdio** | 通过代理 | Claude Desktop（旧版）、VS Code Copilot、Cline |
+```text
+https://api.anysearch.com/mcp
+```
+
+该端点原生使用 **Streamable HTTP**。当前版本的 OpenCode、Claude Code、Cursor、VS Code、Windsurf 和 Cline 均可直接连接，无需 SSE 或 stdio 代理。以下配置均依据各客户端当前官方文档整理。
 
 ## 安装
 
-### Streamable HTTP（推荐 —— 无需代理）
+API key 是可选项。对于支持自定义 Header 的客户端，下面默认给出推荐的鉴权配置。如需匿名访问，只删除 `Authorization` 项，并保留 `X-Anysearch-Client`。
 
-适用于支持 Streamable HTTP 传输（MCP 规范 2025-03-26+）的智能体：
+### OpenCode
 
-**OpenCode** (v1.x+ / v0.1.x+)：
+官方文档：[MCP servers](https://opencode.ai/docs/mcp-servers/) 和 [配置文件位置](https://opencode.ai/docs/config/)。
 
-配置文件位置取决于 OpenCode 版本。运行 `opencode -v` 查看版本。
-
-| 版本 | 全局配置路径 | 项目配置路径 |
-| ---- | ------------ | ------------ |
-| **1.x+**（当前版本） | `~/.config/opencode/opencode.json` | `opencode.json` 或 `.opencode/opencode.json` |
-| **0.1.x ~ 0.15.x** | `~/.config/opencode/opencode.json` | `opencode.json` |
-| **0.0.x**（旧版 Go） | `~/.opencode.json` | `.opencode.json` |
-
-> **Windows**：将 `~/.config/opencode/` 替换为 `%USERPROFILE%\.config\opencode\`。
-
-对于 v1.x+ 和 v0.1.x+（MCP key：`mcp`）：
+全局配置使用 `~/.config/opencode/opencode.json`，项目配置使用项目根目录下的 `opencode.json`。Windows 全局路径为 `%USERPROFILE%\.config\opencode\opencode.json`。
 
 ```json
 {
@@ -127,8 +117,9 @@ AnySearch MCP 服务器**原生支持 Streamable HTTP** 传输（MCP 规范 2025
       "type": "remote",
       "url": "https://api.anysearch.com/mcp",
       "enabled": true,
+      "oauth": false,
       "headers": {
-        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
+        "Authorization": "Bearer {env:ANYSEARCH_API_KEY}",
         "X-Anysearch-Client": "mcp/1.0.0"
       }
     }
@@ -136,206 +127,158 @@ AnySearch MCP 服务器**原生支持 Streamable HTTP** 传输（MCP 规范 2025
 }
 ```
 
-<details>
-<summary>旧版 Go (0.0.x) —— MCP key：<code>mcpServers</code></summary>
+OpenCode 使用 `{env:NAME}` 语法引用环境变量。`"oauth": false` 可避免 API key 鉴权服务触发不必要的 OAuth 探测。
 
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "type": "sse",
-      "url": "https://api.anysearch.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
-        "X-Anysearch-Client": "mcp/1.0.0"
-      }
-    }
-  }
-}
-```
+### Claude Code
 
-> 旧版 Go 不原生支持 Streamable HTTP。请通过代理使用 SSE 或 stdio。
+官方文档：[通过 MCP 将 Claude Code 连接到工具](https://code.claude.com/docs/en/mcp)。
 
-</details>
-
-**Claude Desktop** (2025.6+, `claude_desktop_config.json`)：
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "type": "streamable-http",
-      "url": "https://api.anysearch.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
-        "X-Anysearch-Client": "mcp/1.0.0"
-      }
-    }
-  }
-}
-```
-
-> 如果没有 API key，只删除 `Authorization` 这一行，但**保留** `X-Anysearch-Client`。服务器将自动使用匿名访问。
-
-### stdio（通过代理）
-
-适用于仅支持 stdio 传输的智能体。有两种代理方案：
-
-#### 方案 A：mcp-remote（推荐）
-
-[`mcp-remote`](https://github.com/geelen/mcp-remote) —— 可自动检测 Streamable HTTP，配置最简单：
-
-**Claude Desktop** (`claude_desktop_config.json`)：
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--header",
-        "Authorization: Bearer ${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-**VS Code Copilot** (`.vscode/mcp.json`)：
-
-```json
-{
-  "servers": {
-    "anysearch": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--header",
-        "Authorization: Bearer ${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-**Cline**（VS Code 设置）：
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--header",
-        "Authorization: Bearer ${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-> 如果没有 API key，只省略 `"Authorization: Bearer ..."` 这组 `--header` 参数；**保留** `X-Anysearch-Client` 的 `--header`。
-
-#### 方案 B：supergateway
-
-[`supergateway`](https://github.com/supercorp-ai/supergateway) —— 提供更多传输选项，支持 SSE 输出：
-
-**Claude Desktop** (`claude_desktop_config.json`)：
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "supergateway",
-        "--streamableHttp",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--oauth2Bearer",
-        "${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-> 如果没有 API key，省略 `"--oauth2Bearer"` 和 key 参数。
-
-### SSE（通过代理）
-
-适用于仅支持 SSE 传输的智能体（Cursor、Windsurf）。需要运行本地 SSE 代理服务器：
-
-#### 启动代理
+如需仅供当前用户使用、并在本机所有项目中生效，运行：
 
 ```bash
-npx -y supergateway \
-  --streamableHttp https://api.anysearch.com/mcp \
-  --outputTransport sse \
-  --port 8000 \
-  --header "X-Anysearch-Client: mcp/1.0.0" \
-  --oauth2Bearer <your_api_key>
+claude mcp add --transport http anysearch https://api.anysearch.com/mcp --scope user --header "Authorization: Bearer <your_api_key>" --header "X-Anysearch-Client: mcp/1.0.0"
 ```
 
-> 如果没有 API key，省略 `--oauth2Bearer` 标志。
+`user` scope 会将服务写入 `~/.claude.json`，并在本机所有项目中提供。匿名访问时，省略 `Authorization` 对应的 `--header` 参数。
 
-然后配置你的智能体：
-
-**Cursor** (`.cursor/mcp.json`)：
+如需共享项目配置，在项目根目录创建 `.mcp.json`：
 
 ```json
 {
   "mcpServers": {
     "anysearch": {
-      "type": "sse",
-      "url": "http://localhost:8000/sse"
+      "type": "http",
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
     }
   }
 }
 ```
 
-**Windsurf** (`~/.codeium/windsurf/mcp_config.json`)：
+Claude Code 会在 `.mcp.json` 中展开 `${VAR}` 和 `${VAR:-default}`，包括 `url` 与 `headers`。启动 Claude Code 前需设置 `ANYSEARCH_API_KEY`。首次以交互方式打开项目级 MCP 服务时需要审批。
+
+使用以下命令验证连接：
+
+```bash
+claude mcp get anysearch
+claude mcp list
+```
+
+在 Claude Code 内运行 `/mcp` 可查看服务状态和可用工具。
+
+### Cursor
+
+官方文档：[Model Context Protocol](https://cursor.com/docs/mcp)。
+
+项目配置使用 `.cursor/mcp.json`，全局配置使用 `~/.cursor/mcp.json`：
 
 ```json
 {
   "mcpServers": {
     "anysearch": {
-      "serverUrl": "http://localhost:8000/sse"
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:ANYSEARCH_API_KEY}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
     }
   }
 }
 ```
 
-> 智能体运行期间，SSE 代理必须保持运行。可考虑将其作为后台服务运行。
+Cursor 会自动识别远程 HTTP 端点，并支持在 `url` 和 `headers` 中使用 `${env:NAME}` 环境变量插值。
 
-## 智能体速查表
+### VS Code
 
-| 智能体 | 传输方式 | 配置位置 | 需要代理？ | 代理工具 |
-| ------- | -------- | -------- | -------- | -------- |
-| OpenCode (v1.x+) | Streamable HTTP | `~/.config/opencode/opencode.json` 或项目中的 `opencode.json` | 否 | — |
-| Claude Desktop (2025.6+) | Streamable HTTP | `claude_desktop_config.json` | 否 | — |
-| Claude Desktop（旧版） | stdio | `claude_desktop_config.json` | 是 | `mcp-remote` |
-| Cursor | SSE | `.cursor/mcp.json` | 是 | `supergateway` |
-| VS Code Copilot | stdio | `.vscode/mcp.json` | 是 | `mcp-remote` |
-| Windsurf | SSE | `mcp_config.json` | 是 | `supergateway` |
-| Cline | stdio | VS Code 设置 | 是 | `mcp-remote` |
+官方文档：[MCP 配置参考](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)。
+
+运行 **MCP: Open User Configuration** 可配置全局服务，也可在工作区创建 `.vscode/mcp.json`。下面使用密码输入变量，首次启动时提示输入 key 并安全保存，避免将其提交到仓库：
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "anysearch-api-key",
+      "description": "AnySearch API key",
+      "password": true
+    }
+  ],
+  "servers": {
+    "anysearch": {
+      "type": "http",
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:anysearch-api-key}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
+    }
+  }
+}
+```
+
+如需匿名访问，删除 `Authorization` 项和整个 `inputs` 数组。
+
+### Windsurf
+
+官方文档：[Cascade MCP 集成](https://docs.devin.ai/windsurf/plugins/cascade/mcp)。
+
+打开 **Settings > Tools > Windsurf Settings > Add Server**，或通过 **View Raw Config** 编辑 `~/.codeium/mcp_config.json`：
+
+```json
+{
+  "mcpServers": {
+    "anysearch": {
+      "serverUrl": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:ANYSEARCH_API_KEY}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
+    }
+  }
+}
+```
+
+Windsurf 支持在 `serverUrl`、`url` 和 `headers` 中插值环境变量。保存后刷新 MCP 服务列表。
+
+### Cline
+
+官方文档：[MCP](https://docs.cline.bot/mcp/mcp-overview)。
+
+在 Cline 面板中打开 **MCP Servers > Configure > Configure MCP Servers**，也可从 **Remote Servers** 标签页添加托管端点。必须显式使用 `streamableHttp` 类型；省略时会为兼容旧配置而回退到 SSE。
+
+```json
+{
+  "mcpServers": {
+    "anysearch": {
+      "type": "streamableHttp",
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <your_api_key>",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+Cline CLI 的配置文件是 `~/.cline/mcp.json`；运行 `cline mcp` 可打开交互式 MCP 向导。
+
+## 客户端速查表
+
+| 客户端 | 官方接入方式 | 配置位置 | 可直连 Streamable HTTP？ |
+| ------ | ------------ | -------- | ------------------------ |
+| OpenCode | 远程 MCP 配置 | `~/.config/opencode/opencode.json` 或项目 `opencode.json` | 是 |
+| Claude Code | 远程 HTTP MCP | 用户级 `~/.claude.json` 或项目级 `.mcp.json` | 是 |
+| Cursor | 远程 MCP 配置 | `.cursor/mcp.json` 或 `~/.cursor/mcp.json` | 是 |
+| VS Code | HTTP MCP 配置 | 用户 MCP 配置或 `.vscode/mcp.json` | 是 |
+| Windsurf | 远程 HTTP MCP | `~/.codeium/mcp_config.json` | 是 |
+| Cline | 远程 Streamable HTTP | Cline MCP 设置或 `~/.cline/mcp.json` | 是 |
 
 ## 可用工具
 
