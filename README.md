@@ -91,33 +91,23 @@ Alternatively, visit https://anysearch.com/console/api-keys to create a free API
 
 ## MCP Transport
 
-AnySearch MCP server **natively supports Streamable HTTP** transport (MCP spec 2025-03-26). SSE and stdio clients can connect via proxy.
+The production endpoint is:
 
-| Transport | Native? | Best for |
-|-----------|---------|----------|
-| **Streamable HTTP** | Yes | OpenCode, Claude Desktop (2025.6+), web-based clients |
-| **SSE** | Via proxy | Cursor, Windsurf |
-| **stdio** | Via proxy | Claude Desktop (legacy), VS Code Copilot, Cline |
+```text
+https://api.anysearch.com/mcp
+```
+
+It natively uses **Streamable HTTP**. Current OpenCode, Claude Code, Cursor, VS Code, Windsurf, and Cline releases can connect to it directly; no SSE or stdio proxy is needed. The configurations below follow each client's current official documentation.
 
 ## Installation
 
-### Streamable HTTP (Recommended — No Proxy Needed)
+The API key is optional. In clients that support custom headers, the examples use the recommended authenticated setup. To use anonymous access, remove only the `Authorization` entry and keep `X-Anysearch-Client`.
 
-For agents that support the Streamable HTTP transport (MCP spec 2025-03-26+):
+### OpenCode
 
-**OpenCode** (v1.x+ / v0.1.x+):
+Official docs: [MCP servers](https://opencode.ai/docs/mcp-servers/) and [configuration locations](https://opencode.ai/docs/config/).
 
-Config file location depends on your OpenCode version. Run `opencode -v` to check.
-
-| Version | Global Config Path | Project Config Path |
-|---------|-------------------|-------------------|
-| **1.x+** (current) | `~/.config/opencode/opencode.json` | `opencode.json` or `.opencode/opencode.json` |
-| **0.1.x ~ 0.15.x** | `~/.config/opencode/opencode.json` | `opencode.json` |
-| **0.0.x** (legacy Go) | `~/.opencode.json` | `.opencode.json` |
-
-> **Windows**: Replace `~/.config/opencode/` with `%USERPROFILE%\.config\opencode\`.
-
-For v1.x+ and v0.1.x+ (MCP key: `mcp`):
+Use `~/.config/opencode/opencode.json` for a global configuration or `opencode.json` in the project root. On Windows, the global path is `%USERPROFILE%\.config\opencode\opencode.json`.
 
 ```json
 {
@@ -127,8 +117,9 @@ For v1.x+ and v0.1.x+ (MCP key: `mcp`):
       "type": "remote",
       "url": "https://api.anysearch.com/mcp",
       "enabled": true,
+      "oauth": false,
       "headers": {
-        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
+        "Authorization": "Bearer {env:ANYSEARCH_API_KEY}",
         "X-Anysearch-Client": "mcp/1.0.0"
       }
     }
@@ -136,206 +127,158 @@ For v1.x+ and v0.1.x+ (MCP key: `mcp`):
 }
 ```
 
-<details>
-<summary>Legacy Go version (0.0.x) — MCP key: <code>mcpServers</code></summary>
+OpenCode uses `{env:NAME}` for environment-variable substitution. `"oauth": false` prevents an unnecessary OAuth discovery flow for this API-key-authenticated server.
 
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "type": "sse",
-      "url": "https://api.anysearch.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
-        "X-Anysearch-Client": "mcp/1.0.0"
-      }
-    }
-  }
-}
-```
+### Claude Code
 
-> The legacy Go version does not support Streamable HTTP natively. Use SSE or stdio via proxy instead.
+Official docs: [Connect Claude Code to tools via MCP](https://code.claude.com/docs/en/mcp).
 
-</details>
-
-**Claude Desktop** (2025.6+, `claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "type": "streamable-http",
-      "url": "https://api.anysearch.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
-        "X-Anysearch-Client": "mcp/1.0.0"
-      }
-    }
-  }
-}
-```
-
-> Without an API key, drop only the `Authorization` line but **keep** `X-Anysearch-Client`. The server will use anonymous access automatically.
-
-### stdio (Via Proxy)
-
-For agents that only support stdio transport. Two proxy options:
-
-#### Option A: mcp-remote (Recommended)
-
-[`mcp-remote`](https://github.com/geelen/mcp-remote) — auto-detects Streamable HTTP, simplest config:
-
-**Claude Desktop** (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--header",
-        "Authorization: Bearer ${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-**VS Code Copilot** (`.vscode/mcp.json`):
-
-```json
-{
-  "servers": {
-    "anysearch": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--header",
-        "Authorization: Bearer ${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-**Cline** (VS Code settings):
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--header",
-        "Authorization: Bearer ${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-> Without an API key, omit only the `"Authorization: Bearer ..."` `--header` pair; **keep** the `X-Anysearch-Client` `--header`.
-
-#### Option B: supergateway
-
-[`supergateway`](https://github.com/supercorp-ai/supergateway) — more transport options, supports SSE output:
-
-**Claude Desktop** (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "anysearch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "supergateway",
-        "--streamableHttp",
-        "https://api.anysearch.com/mcp",
-        "--header",
-        "X-Anysearch-Client: mcp/1.0.0",
-        "--oauth2Bearer",
-        "${ANYSEARCH_API_KEY}"
-      ]
-    }
-  }
-}
-```
-
-> Without an API key, omit the `"--oauth2Bearer"` and key args.
-
-### SSE (Via Proxy)
-
-For agents that only support SSE transport (Cursor, Windsurf). Requires running a local SSE proxy server:
-
-#### Start the proxy
+For a private, user-wide installation, run:
 
 ```bash
-npx -y supergateway \
-  --streamableHttp https://api.anysearch.com/mcp \
-  --outputTransport sse \
-  --port 8000 \
-  --header "X-Anysearch-Client: mcp/1.0.0" \
-  --oauth2Bearer <your_api_key>
+claude mcp add --transport http anysearch https://api.anysearch.com/mcp --scope user --header "Authorization: Bearer <your_api_key>" --header "X-Anysearch-Client: mcp/1.0.0"
 ```
 
-> Without an API key, omit the `--oauth2Bearer` flag.
+The `user` scope stores the server in `~/.claude.json` and makes it available across all projects on the machine. For anonymous access, omit the `Authorization` `--header` option.
 
-Then configure your agent:
-
-**Cursor** (`.cursor/mcp.json`):
+For a shareable project configuration, create `.mcp.json` in the project root:
 
 ```json
 {
   "mcpServers": {
     "anysearch": {
-      "type": "sse",
-      "url": "http://localhost:8000/sse"
+      "type": "http",
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ANYSEARCH_API_KEY}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
     }
   }
 }
 ```
 
-**Windsurf** (`~/.codeium/windsurf/mcp_config.json`):
+Claude Code expands `${VAR}` and `${VAR:-default}` in `.mcp.json`, including inside `url` and `headers`. Set `ANYSEARCH_API_KEY` before starting Claude Code. Project-scoped servers require approval when first opened interactively.
+
+Verify the connection with:
+
+```bash
+claude mcp get anysearch
+claude mcp list
+```
+
+Inside Claude Code, `/mcp` shows the server status and available tools.
+
+### Cursor
+
+Official docs: [Model Context Protocol](https://cursor.com/docs/mcp).
+
+Use `.cursor/mcp.json` for a project or `~/.cursor/mcp.json` globally:
 
 ```json
 {
   "mcpServers": {
     "anysearch": {
-      "serverUrl": "http://localhost:8000/sse"
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:ANYSEARCH_API_KEY}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
     }
   }
 }
 ```
 
-> The SSE proxy must remain running while the agent is active. Consider running it as a background service.
+Cursor automatically recognizes the remote HTTP endpoint and supports `${env:NAME}` interpolation in `url` and `headers`.
 
-## Agent Quick Reference
+### VS Code
 
-| Agent | Transport | Config Location | Needs Proxy? | Proxy Tool |
-|-------|-----------|----------------|-------------|------------|
-| OpenCode (v1.x+) | Streamable HTTP | `~/.config/opencode/opencode.json` or project `opencode.json` | No | — |
-| Claude Desktop (2025.6+) | Streamable HTTP | `claude_desktop_config.json` | No | — |
-| Claude Desktop (legacy) | stdio | `claude_desktop_config.json` | Yes | `mcp-remote` |
-| Cursor | SSE | `.cursor/mcp.json` | Yes | `supergateway` |
-| VS Code Copilot | stdio | `.vscode/mcp.json` | Yes | `mcp-remote` |
-| Windsurf | SSE | `mcp_config.json` | Yes | `supergateway` |
-| Cline | stdio | VS Code settings | Yes | `mcp-remote` |
+Official docs: [MCP configuration reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration).
+
+Run **MCP: Open User Configuration** for a user-wide server, or create `.vscode/mcp.json` in a workspace. This example uses a password input so the key is prompted for and stored securely instead of being committed:
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "anysearch-api-key",
+      "description": "AnySearch API key",
+      "password": true
+    }
+  ],
+  "servers": {
+    "anysearch": {
+      "type": "http",
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:anysearch-api-key}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
+    }
+  }
+}
+```
+
+For anonymous access, remove the `Authorization` entry and the entire `inputs` array.
+
+### Windsurf
+
+Official docs: [Cascade MCP integration](https://docs.devin.ai/windsurf/plugins/cascade/mcp).
+
+Open **Settings > Tools > Windsurf Settings > Add Server**, or edit `~/.codeium/mcp_config.json` via **View Raw Config**:
+
+```json
+{
+  "mcpServers": {
+    "anysearch": {
+      "serverUrl": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:ANYSEARCH_API_KEY}",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      }
+    }
+  }
+}
+```
+
+Windsurf supports environment-variable interpolation in `serverUrl`, `url`, and `headers`. Refresh the MCP server list after saving.
+
+### Cline
+
+Official docs: [MCP](https://docs.cline.bot/mcp/mcp-overview).
+
+In the Cline panel, open **MCP Servers > Configure > Configure MCP Servers**, or add a hosted endpoint from the **Remote Servers** tab. Use the explicit `streamableHttp` type; omitting it falls back to legacy SSE behavior.
+
+```json
+{
+  "mcpServers": {
+    "anysearch": {
+      "type": "streamableHttp",
+      "url": "https://api.anysearch.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <your_api_key>",
+        "X-Anysearch-Client": "mcp/1.0.0"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+For Cline CLI, the config file is `~/.cline/mcp.json`; `cline mcp` opens the interactive MCP wizard.
+
+## Client Quick Reference
+
+| Client | Official connection | Configuration location | Direct Streamable HTTP? |
+|--------|---------------------|------------------------|-------------------------|
+| OpenCode | Remote MCP config | `~/.config/opencode/opencode.json` or project `opencode.json` | Yes |
+| Claude Code | Remote HTTP MCP | User `~/.claude.json` or project `.mcp.json` | Yes |
+| Cursor | Remote MCP config | `.cursor/mcp.json` or `~/.cursor/mcp.json` | Yes |
+| VS Code | HTTP MCP config | User MCP config or `.vscode/mcp.json` | Yes |
+| Windsurf | Remote HTTP MCP | `~/.codeium/mcp_config.json` | Yes |
+| Cline | Remote Streamable HTTP | Cline MCP settings or `~/.cline/mcp.json` | Yes |
 
 ## Available Tools
 
